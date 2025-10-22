@@ -293,3 +293,15 @@
     timestamp: uint
   }
 )
+
+;; REFERRAL SYSTEM
+(define-map referral-codes
+  { code: (string-ascii 20) }
+  {
+    referrer: principal,
+    total-referrals: uint,
+    total-volume: uint,
+    commission-earned: uint,
+    is-active: bool
+  }
+)
