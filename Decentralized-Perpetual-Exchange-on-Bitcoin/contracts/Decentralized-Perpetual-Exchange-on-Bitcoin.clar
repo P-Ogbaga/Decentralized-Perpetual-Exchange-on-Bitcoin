@@ -544,3 +544,86 @@
     (ok true)
   )
 )
+
+(define-public (use-referral-code (code (string-ascii 20)))
+  (let (
+    (referral-data (unwrap! (map-get? referral-codes { code: code }) ERR_REFERRAL_NOT_FOUND))
+  )
+    (asserts! (get is-active referral-data) ERR_INVALID_PARAMETER)
+    
+    (map-set user-referrals
+      { user: tx-sender }
+      {
+        referrer: (some (get referrer referral-data)),
+        referred-users: u0,
+        referral-rewards: u0,
+        discount-tier: u1
+      }
+    )
+    (ok true)
+  )
+)
+
+;; ===== YIELD VAULT FUNCTIONS =====
+
+(define-public (create-yield-vault 
+                (name (string-ascii 30))
+                (strategy-contract principal)
+                (performance-fee uint)
+                (management-fee uint)
+                (risk-level uint))
+  (let (
+    (vault-id (var-get vault-counter))
+  )
+    (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+    (asserts! (<= performance-fee u2000) ERR_INVALID_PARAMETER) ;; Max 20%
+    (asserts! (<= management-fee u200) ERR_INVALID_PARAMETER) ;; Max 2%
+    
+    (map-set yield-vaults
+      { vault-id: vault-id }
+      {
+        name: name,
+        strategy-contract: strategy-contract,
+        total-assets: u0,
+        total-shares: u0,
+        performance-fee: performance-fee,
+        management-fee: management-fee,
+        is-active: true,
+        risk-level: risk-level
+      }
+    )
+    (var-set vault-counter (+ vault-id u1))
+    (ok vault-id)
+  )
+)
+
+(define-public (deposit-to-vault (vault-id uint) (amount uint))
+  (let (
+    (vault (unwrap! (map-get? yield-vaults { vault-id: vault-id }) ERR_VAULT_NOT_FOUND))
+    (shares-to-mint (if (is-eq (get total-assets vault) u0)
+                      amount
+                      (/ (* amount (get total-shares vault)) (get total-assets vault))))
+  )
+    (asserts! (get is-active vault) ERR_INVALID_PARAMETER)
+    (asserts! (> amount u0) ERR_INVALID_PARAMETER)
+    
+    (map-set vault-positions
+      { vault-id: vault-id, user: tx-sender }
+      {
+        shares: shares-to-mint,
+        deposited-amount: amount,
+        entry-timestamp: stacks-block-height,
+        accumulated-yield: u0
+      }
+    )
+    
+    (map-set yield-vaults
+      { vault-id: vault-id }
+      (merge vault {
+        total-assets: (+ (get total-assets vault) amount),
+        total-shares: (+ (get total-shares vault) shares-to-mint)
+      })
+    )
+    (ok shares-to-mint)
+  )
+)
