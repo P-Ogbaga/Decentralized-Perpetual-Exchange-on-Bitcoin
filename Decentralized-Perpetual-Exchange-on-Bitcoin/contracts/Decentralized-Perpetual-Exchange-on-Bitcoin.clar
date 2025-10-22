@@ -270,3 +270,26 @@
     total-rewards-distributed: uint
   }
 )
+
+;; INSURANCE FUND SYSTEM
+(define-map insurance-fund
+  { market-id: uint }
+  {
+    balance: uint,
+    contribution-rate: uint, ;; Percentage of trading fees that go to insurance
+    deficit-coverage: uint,
+    last-updated: uint
+  }
+)
+
+(define-map insurance-claims
+  { claim-id: uint }
+  {
+    market-id: uint,
+    trader: principal,
+    amount: uint,
+    reason: (string-ascii 50),
+    status: uint, ;; 0: pending, 1: approved, 2: rejected
+    timestamp: uint
+  }
+)
